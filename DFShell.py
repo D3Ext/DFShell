@@ -293,19 +293,19 @@ if __name__ == '__main__':
           print(c.BLUE + "Users in /home: " + users.strip('\n') + c.END)
           print(c.BLUE + "System info: " + uname + c.END) 
             
-		if command_to_exec == "dfs-exit" or command_to_exec == "exit-dfs":
-			removeFiles(url, parameter)
-			print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!" + c.END)
-			sys.exit(0)
+	if command_to_exec == "dfs-exit" or command_to_exec == "exit-dfs":
+		removeFiles(url, parameter)
+		print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!" + c.END)
+		sys.exit(0)
 	
-		if command_to_exec not in customCommands:
-			execCommand(url, parameter, command_to_exec + "\n")
-			# Read command output
-			resp = readCommand(url, parameter)
-			# Print command output
-			print(resp)
-			# Clear the file of the output
-			clearOutput(url, parameter)
+	if command_to_exec not in customCommands:
+		execCommand(url, parameter, command_to_exec + "\n")
+		# Read command output
+		resp = readCommand(url, parameter)
+		# Print command output
+		print(resp)
+		# Clear the file of the output
+		clearOutput(url, parameter)
 
 
 
