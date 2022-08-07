@@ -13,7 +13,7 @@ It creates a hidden directory in /dev/shm/.fs/ and there are stored the created 
 ### Why you should use DFShell?
 To use other forwarded shells you have to edit the script to change the url and the parameter of the webshell, but **DFShell** use parameters to quickly pass the arguments to the script (-u/--url and -p/--parameter), the script have a pretty output with colors, you also have custom commands to upload and download files from the target, do port and host discovery, and it deletes the files created on the victim if you press Ctrl + C or simply exit from the shell.
 
-* \*If you change the actual user from webshell (or anything get unstable) then execute: 'sh'\* *
+*\*If you change the actual user from webshell (or anything get unstable) then execute: 'sh'\**
 
 ## Installation:
 
