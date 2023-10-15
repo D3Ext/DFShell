@@ -1,6 +1,2 @@
-requests
 argparse
-sys
-signal
-random
-base64
+requests
